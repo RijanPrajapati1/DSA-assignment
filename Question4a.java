@@ -1,11 +1,10 @@
 
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 
-public class VirtualMaze {
+class VirtualMaze {
     int[][] directions = {
             { 0, 1 }, // Right
             { 0, -1 }, // Left

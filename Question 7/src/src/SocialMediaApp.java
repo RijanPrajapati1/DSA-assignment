@@ -8,8 +8,6 @@ class User {
     private String username;
     private Set<User> followers;
     private Set<User> following;
-    java.util.List<String> recommendedContent = new java.util.ArrayList<>();
-    
 
     public User(String username) {
         this.username = username;
@@ -90,28 +88,7 @@ class SocialNetworkGraph {
         }
     }
 
-    public void removeFollower(String follower, String followed) {
-        User followerUser = getUser(follower);
-        User followedUser = getUser(followed);
-        if (followerUser != null && followedUser != null) {
-            followerUser.removeFollowing(followedUser);
-            followedUser.removeFollower(followerUser);
-            try {
-                String query = "DELETE FROM follows WHERE follower = ? AND followed = ?";
-                PreparedStatement statement = connection.prepareStatement(query);
-                statement.setString(1, follower);
-                statement.setString(2, followed);
-                int rowsDeleted = statement.executeUpdate();
-                if (rowsDeleted > 0) {
-                    System.out.println("Follower-followed relationship removed from database.");
-                } else {
-                    System.out.println("Failed to remove follower-followed relationship from database.");
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+    // Other methods for managing users and followers
 }
 
 class LoginGUI {
@@ -151,6 +128,8 @@ class LoginGUI {
             connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/social_media_db", "root", "luckyiscat2");
         } catch (SQLException e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(frame, "Failed to connect to the database.");
+            System.exit(1);
         }
 
         socialGraph = new SocialNetworkGraph(connection);
@@ -204,6 +183,73 @@ class LoginGUI {
     }
 }
 
+class SignupGUI {
+    private JFrame frame;
+    private JPanel panel;
+    private JTextField usernameField;
+    private JPasswordField passwordField;
+    private JButton signupButton;
+    private Connection connection;
+    private SocialNetworkGraph socialGraph;
+
+    public SignupGUI(Connection connection, SocialNetworkGraph socialGraph) {
+        this.connection = connection;
+        this.socialGraph = socialGraph;
+
+        frame = new JFrame("Sign Up");
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setSize(400, 200);
+
+        panel = new JPanel();
+        panel.setLayout(new GridLayout(3, 2));
+
+        usernameField = new JTextField();
+        passwordField = new JPasswordField();
+        signupButton = new JButton("Sign Up");
+
+        panel.add(new JLabel("Username:"));
+        panel.add(usernameField);
+        panel.add(new JLabel("Password:"));
+        panel.add(passwordField);
+        panel.add(new JLabel(""));
+        panel.add(signupButton);
+
+        frame.add(panel);
+        frame.setVisible(true);
+
+        signupButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String username = usernameField.getText();
+                String password = new String(passwordField.getPassword());
+                if (signup(username, password)) {
+                    JOptionPane.showMessageDialog(frame, "Signed up successfully. Please log in.");
+                    frame.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(frame, "Failed to sign up. Please try again.");
+                }
+            }
+        });
+    }
+
+    private boolean signup(String username, String password) {
+        try {
+            String query = "INSERT INTO users (username, password) VALUES (?, ?)";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setString(1, username);
+            statement.setString(2, password);
+            int rowsInserted = statement.executeUpdate();
+            if (rowsInserted > 0) {
+                socialGraph.addUser(username);
+                return true;
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        return false;
+    }
+}
+
 class SocialMediaAppGUI {
     private JFrame frame;
     private JPanel panel;
@@ -211,6 +257,7 @@ class SocialMediaAppGUI {
     private JTextField commentField;
     private JButton postButton;
     private JButton followButton;
+    private JButton unfollowButton; // Add "Unfollow" button
     private JButton usersButton;
     private JButton myProfileButton; // Add "My Profile" button
     private SocialNetworkGraph socialGraph;
@@ -238,10 +285,12 @@ class SocialMediaAppGUI {
         JPanel interactionPanel = new JPanel(new FlowLayout());
         postButton = new JButton("Post");
         followButton = new JButton("Follow");
+        unfollowButton = new JButton("Unfollow"); // Create "Unfollow" button
         usersButton = new JButton("Users");
         myProfileButton = new JButton("My Profile"); // Create "My Profile" button
         interactionPanel.add(postButton);
         interactionPanel.add(followButton);
+        interactionPanel.add(unfollowButton); // Add "Unfollow" button
         interactionPanel.add(usersButton);
         interactionPanel.add(myProfileButton); // Add "My Profile" button
         panel.add(interactionPanel, BorderLayout.SOUTH);
@@ -293,6 +342,18 @@ class SocialMediaAppGUI {
                 if (followedUser != null && !followedUser.isEmpty()) {
                     socialGraph.addFollower(username, followedUser);
                     JOptionPane.showMessageDialog(frame, "You are now following " + followedUser);
+                }
+            }
+        });
+
+        unfollowButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Functionality for unfollowing a user
+                String unfollowedUser = JOptionPane.showInputDialog(frame, "Enter the username of the user you want to unfollow:");
+                if (unfollowedUser != null && !unfollowedUser.isEmpty()) {
+                    socialGraph.removeFollower(username, unfollowedUser);
+                    JOptionPane.showMessageDialog(frame, "You have unfollowed " + unfollowedUser);
                 }
             }
         });
@@ -376,7 +437,6 @@ class SocialMediaAppGUI {
             return false;
         }
     }
-    
 
     private void displayUserProfile(String username) {
         // Retrieve user's followers and following from the database
